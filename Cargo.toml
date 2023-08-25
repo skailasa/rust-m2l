@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ispc = "2.0.0"
 num = "0.4.1"
 rand = "0.8.5"
 rayon = "1.7.0"
@@ -22,6 +21,3 @@ path = "src/bin/simd.rs"
 [[bin]]
 name = "simd_no_bounds"
 path = "src/bin/simd_no_bounds.rs"
-
-[build-dependencies]
-ispc = "2.0.0"

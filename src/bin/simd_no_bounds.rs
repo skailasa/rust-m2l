@@ -1,4 +1,4 @@
-use std::time::{self, Instant};
+use std::time::Instant;
 use rust_simd::*;
 
 
@@ -8,5 +8,5 @@ fn main () {
 
     let s = Instant::now();
     dotp_no_simd_bounds_f32(&x, &y, &mut z);
-    println!("SIMD: {:?}", s.elapsed().as_nanos());
+    println!("SIMD: {:?}", s.elapsed().as_millis());
 }
