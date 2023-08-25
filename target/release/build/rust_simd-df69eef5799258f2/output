@@ -1,7 +1,0 @@
-cargo:rerun-if-changed=src/ispdotc.ispc
-cargo:warning=(ISPC) Warning: No --target specified on command-line. Using default system target 
-cargo:warning=(ISPC)         "avx2-i32x8". 
-cargo:rerun-if-changed=src/ispdotc.ispc
-cargo:rustc-link-lib=static=ispdotcx86_64-unknown-linux-gnu
-cargo:rustc-link-search=native=/home/sri/Github/rust-simd/target/release/build/rust_simd-df69eef5799258f2/out
-cargo:rustc-env=ISPC_OUT_DIR=/home/sri/Github/rust-simd/target/release/build/rust_simd-df69eef5799258f2/out
