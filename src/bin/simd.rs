@@ -4,14 +4,16 @@ use rust_simd::*;
 
 fn main () {
 
-    let (x, y, mut z) = data_f64(10000);
+    let (x, y, mut z) = data_f32(10000);
     let mut tst = z.clone();
 
     let s = Instant::now();
-    dotp_simd_f64(&x, &y, &mut z);
+    // dotp_naive_f32(&x, &y, &mut z);
+    dotp_simd_f32_portable(&x[..], &y[..], &mut z[..]);
     println!("SIMD: {:?}", s.elapsed().as_millis());
 
     // Test code
-    dotp_naive_f64(&x, &y, &mut tst);
+    // println!("{:?}", z);
+    dotp_naive_f32(&x, &y, &mut tst);
     tst.iter().zip(z.iter()).for_each(|(a, b)| assert!(*a == *b));
 }

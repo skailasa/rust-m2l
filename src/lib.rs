@@ -1,5 +1,9 @@
 #![feature(stdsimd)]
+#![feature(array_chunks)]
+#![feature(slice_as_chunks)]
+#![feature(portable_simd)]
 
+use std::simd::*;
 use std::arch::x86_64::*;
 
 use rayon::prelude::*;
@@ -85,6 +89,50 @@ pub fn dotp_simd_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
 
             }
         }
+}
+
+
+pub fn dotp_simd_f32_portable(x: &[f32], y: &[f32], z: &mut [f32]) {
+
+    x.array_chunks::<8>()
+        .map(|&a| f32x8::from_array(a))
+        .zip(
+            y.array_chunks::<8>()
+            .map(|&b| f32x8::from_array(b))
+        )
+        .zip(
+            z.array_chunks_mut::<8>()
+            // .map(|&mut c| f32x8::from_array(c))
+        ).for_each(|((a, b), mut c)| {
+            let mut c_s = f32x8::splat(0.0);
+            c_s = a.mul_add(b, c_s);
+
+            unsafe {
+                let idxs = Simd::from_array([0, 1, 2, 3, 4, 5, 6, 7]);
+                c_s.scatter(c, idxs);
+            }
+        });
+}
+
+pub fn dotp_simd_f64_portable(x: &[f64], y: &[f64], z: &mut [f64]) {
+
+    x.array_chunks::<4>()
+        .map(|&a| f64x4::from_array(a))
+        .zip(
+            y.array_chunks::<4>()
+            .map(|&b| f64x4::from_array(b))
+        )
+        .zip(
+            z.array_chunks_mut::<4>()
+        ).for_each(|((a, b), mut c)| {
+            let mut c_s = f64x4::splat(0.0);
+            c_s = a.mul_add(b, c_s);
+
+            unsafe {
+                let idxs = Simd::from_array([0, 1, 2, 3]);
+                c_s.scatter(c, idxs);
+            }
+        });
 }
 
 
