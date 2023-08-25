@@ -1,4 +1,4 @@
-use std::time::{self, Instant};
+use std::time::{Instant};
 use rust_simd::*;
 
 
