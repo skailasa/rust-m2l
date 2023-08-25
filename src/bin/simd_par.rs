@@ -8,8 +8,8 @@ fn main () {
     let mut tst = z.clone();
 
     let s = Instant::now();
-    dotp_simd_f64(&x, &y, &mut z);
-    println!("SIMD: {:?}", s.elapsed().as_millis());
+    dotp_simd_f64_par(&x, &y, &mut z);
+    println!("SIMD PAR: {:?}", s.elapsed().as_millis());
 
     // Test code
     dotp_naive_f64(&x, &y, &mut tst);

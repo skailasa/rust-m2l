@@ -2,7 +2,8 @@
 
 use std::arch::x86_64::*;
 
-use rand::Rng;
+use rayon::prelude::*;
+use rayon::slice::{ParallelSlice, ParallelSliceMut};
 
 pub const BLOCK_SIZE: usize = 1024;
 
@@ -46,7 +47,7 @@ pub fn dotp_naive_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
     }
 }
 #[inline(never)]
-pub unsafe fn dotp_simd_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
+pub fn dotp_simd_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
 
     let chunk_size = 4;
     for ((a, b), c) in x
@@ -85,6 +86,54 @@ pub fn dotp_simd_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
             }
         }
 }
+
+
+#[inline(never)]
+pub fn dotp_simd_f32_par(x: &[f32], y: &[f32], z: &mut [f32]) {
+
+    let chunk_size = 8;
+    x
+    .par_chunks_exact(chunk_size)
+    .zip(
+        y.par_chunks_exact(chunk_size)
+    ).zip(
+        z.par_chunks_exact_mut(chunk_size)
+    ).for_each(|((a, b), c)| {
+
+        unsafe {
+                let x_a = _mm256_loadu_ps(a.as_ptr());
+                let y_a = _mm256_loadu_ps(b.as_ptr());
+                let r_a = _mm256_loadu_ps(c.as_ptr());
+
+                _mm256_storeu_ps(c.as_mut_ptr(), _mm256_fmadd_ps(x_a, y_a, r_a));
+
+        }
+    });
+}
+
+
+#[inline(never)]
+pub fn dotp_simd_f64_par(x: &[f64], y: &[f64], z: &mut [f64]) {
+
+    let chunk_size = 4;
+    x
+    .par_chunks_exact(chunk_size)
+    .zip(
+        y.par_chunks_exact(chunk_size)
+    ).zip(
+        z.par_chunks_exact_mut(chunk_size)
+    ).for_each(|((a, b), c)| {
+
+        unsafe {
+                let x_a = _mm256_loadu_pd(a.as_ptr());
+                let y_a = _mm256_loadu_pd(b.as_ptr());
+                let r_a = _mm256_loadu_pd(c.as_ptr());
+
+                _mm256_storeu_pd(c.as_mut_ptr(), _mm256_fmadd_pd(x_a, y_a, r_a));
+        }
+    });
+}
+
 
 #[inline(never)]
 pub fn dotp_no_simd_bounds_f32(x: &[f32], y: &[f32], z: &mut [f32]) {

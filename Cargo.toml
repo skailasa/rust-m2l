@@ -19,5 +19,5 @@ name = "simd"
 path = "src/bin/simd.rs"
 
 [[bin]]
-name = "simd_no_bounds"
-path = "src/bin/simd_no_bounds.rs"
+name = "simd_par"
+path = "src/bin/simd_par.rs"
