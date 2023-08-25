@@ -1,0 +1,23 @@
+[package]
+name = "rust_simd"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ispc = "2.0.0"
+num = "0.4.1"
+rand = "0.8.5"
+rayon = "1.7.0"
+
+[[bin]]
+name = "naive"
+path = "src/bin/naive.rs"
+
+[[bin]]
+name = "simd"
+path = "src/bin/simd.rs"
+
+[build-dependencies]
+ispc = "2.0.0"
