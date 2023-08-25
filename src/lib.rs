@@ -7,7 +7,7 @@ use std::arch::x86_64::*;
 
 use rand::Rng;
 
-const BLOCK_SIZE: usize = 1024;
+pub const BLOCK_SIZE: usize = 1024;
 
 pub fn data_f64(n: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 

@@ -19,5 +19,9 @@ path = "src/bin/naive.rs"
 name = "simd"
 path = "src/bin/simd.rs"
 
+[[bin]]
+name = "simd_no_bounds"
+path = "src/bin/simd_no_bounds.rs"
+
 [build-dependencies]
 ispc = "2.0.0"
