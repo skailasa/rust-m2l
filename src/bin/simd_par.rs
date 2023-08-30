@@ -1,9 +1,7 @@
-use std::time::Instant;
 use rust_simd::*;
+use std::time::Instant;
 
-
-fn main () {
-
+fn main() {
     let (x, y, mut z) = data_f64(10000);
     let mut tst = z.clone();
 
@@ -13,5 +11,7 @@ fn main () {
 
     // Test code
     dotp_naive_f64(&x, &y, &mut tst);
-    tst.iter().zip(z.iter()).for_each(|(a, b)| assert!(*a == *b));
+    tst.iter()
+        .zip(z.iter())
+        .for_each(|(a, b)| assert!(*a == *b));
 }

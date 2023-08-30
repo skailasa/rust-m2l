@@ -9,6 +9,10 @@ edition = "2021"
 num = "0.4.1"
 rand = "0.8.5"
 rayon = "1.7.0"
+bempp-tree = {git = "https://github.com/bempp/bempp-rs.git", branch = "feat/rlst-fmm-pvfmm-port" }
+bempp-traits = {git = "https://github.com/bempp/bempp-rs.git", branch = "feat/rlst-fmm-pvfmm-port" }
+rlst = {git = "https://github.com/skailasa/rlst.git", branch = "enh/moore-penrose-pseudo-inverse" }
+itertools = "0.11.0"
 
 [[bin]]
 name = "naive"
@@ -21,3 +25,21 @@ path = "src/bin/simd.rs"
 [[bin]]
 name = "simd_par"
 path = "src/bin/simd_par.rs"
+
+[[bin]]
+name = "m2l_naive"
+path = "src/bin/m2l_naive.rs"
+
+
+[[bin]]
+name = "m2l_naive_par"
+path = "src/bin/m2l_naive_par.rs"
+
+
+[[bin]]
+name = "m2l_parent_par"
+path = "src/bin/m2l_parent_par.rs"
+
+[[bin]]
+name = "hadamard"
+path = "src/bin/hadamard.rs"
