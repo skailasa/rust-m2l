@@ -1,5 +1,6 @@
 use rlst::dense::{rlst_rand_mat, RawAccess};
-use rust_simd::*;
+use rust_simd::hadamard::*;
+use rust_simd::helpers::*;
 use std::sync::{Arc, Mutex};
 
 pub fn main() {
