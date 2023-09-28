@@ -12,7 +12,6 @@ use rust_simd::m2l::aarch64::*;
 #[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 use rust_simd::m2l::x86::*;
 
-
 #[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 fn main() {
     let npoints = 1000000;
