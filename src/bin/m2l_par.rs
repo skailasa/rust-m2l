@@ -20,5 +20,5 @@ fn main () {
 
     let tree = SingleNodeTree::new(points.data(), false, Some(ncrit), Some(depth), &global_idxs);
 
-    m2l_par(expansion_order, &tree);
+    // m2l_par(expansion_order, &tree);
 }
