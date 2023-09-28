@@ -4,6 +4,7 @@ use rust_simd::hadamard::*;
 use rust_simd::helpers::*;
 use std::sync::{Arc, Mutex, RwLock};
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 pub fn main() {
     let expansion_order: usize = 9;
     let n = 2 * expansion_order - 1;
@@ -25,4 +26,9 @@ pub fn main() {
 
     let kernel_data = RwLock::new(kernel_like_data(expansion_order));
     hadamard_product_simd(expansion_order, &sibling_set, &kernel_data);
+}
+
+#[cfg(target_arch = "aarch64")]
+fn main() {
+    println!("Running on aarch64!");
 }

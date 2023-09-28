@@ -2,8 +2,9 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
     time::Instant,
-    arch::x86_64::*
 };
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
+use std::arc::x86_64::*;
 
 use itertools::*;
 use num::{Float, Complex, complex::Complex64, One, Zero};
@@ -12,7 +13,7 @@ use rayon::prelude::*;
 use bempp_tree::types::{domain::Domain, morton::MortonKey, single_node::SingleNodeTree};
 
 use crate::{
-    hadamard::{hadamard_product_naive, hadamard_product_simd},
+    hadamard::hadamard_product_naive,
     helpers::{fft_like_data_arc, kernel_like_data_transpose, m2l_like_data, m2l_like_data_arc, fft_like_data_arc_vec, kernel_like_data, transpose, fft_like_data_transposed},
 };
 
@@ -140,6 +141,37 @@ pub fn m2l_parent_par_naive(expansion_order: usize, tree: &SingleNodeTree) {
     println!("M2L parent par naive {:?}", s.elapsed());
 }
 
+#[cfg(all(target_arch = "aarch64", feature = "neon"))]
+pub fn m2l_parent_par_simd(expansion_order: usize, tree: &SingleNodeTree) {
+    let n = 2 * expansion_order - 1;
+    let &(m, n, o) = &(n, n, n);
+
+    let p = m + 1;
+    let q = n + 1;
+    let r = o + 1;
+    let size_real = p * q * (r / 2 + 1);
+
+    let data = m2l_like_data_arc(expansion_order, tree);
+    let mut keys: Vec<MortonKey> = data.keys().cloned().collect();
+    keys.sort();
+
+    // Iterate over parents now
+    let scatter_idxs = Arc::new(RwLock::new(scatter_displacements()));
+
+    let kernel_data = RwLock::new(kernel_like_data_transpose(expansion_order));
+
+    let s = Instant::now();
+    let fft_data = fft_like_data_arc(expansion_order, tree);
+    let ifft_data = fft_like_data_arc(expansion_order, tree);
+
+
+
+    println!("M2L parent par SIMD {:?}", s.elapsed());
+}
+
+
+
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 pub fn m2l_parent_par_simd(expansion_order: usize, tree: &SingleNodeTree) {
     let n = 2 * expansion_order - 1;
     let &(m, n, o) = &(n, n, n);
@@ -293,21 +325,21 @@ pub fn m2l_parent_par_simd(expansion_order: usize, tree: &SingleNodeTree) {
 }
 
 
-fn store_with_avx(data: &[Complex<f64>], destination: &mut Complex<f64>) {
+// fn store_with_avx(data: &[Complex<f64>], destination: &mut Complex<f64>) {
 
-    unsafe {
-        let complex_ref = &data[0];
-        let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
-        let ptr = tuple_ptr as *mut f64;
-        let a_ra = _mm256_loadu_pd(ptr);
+//     unsafe {
+//         let complex_ref = &data[0];
+//         let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+//         let ptr = tuple_ptr as *mut f64;
+//         let a_ra = _mm256_loadu_pd(ptr);
 
-        let complex_ref = destination;
-        let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
-        let mut_ptr = tuple_ptr as *mut f64;
-        _mm256_storeu_pd(mut_ptr, a_ra);
-    }
+//         let complex_ref = destination;
+//         let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+//         let mut_ptr = tuple_ptr as *mut f64;
+//         _mm256_storeu_pd(mut_ptr, a_ra);
+//     }
 
-}
+// }
 
 
 pub fn scatter_displacements() -> Vec<Vec<usize>> {

@@ -1,12 +1,12 @@
 
-use std::{
-    arch::x86_64::*,
-    simd::*
-};
+use std::simd::*;
+
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
+use std::arc::x86_64::*;
 
 use rayon::prelude::*;
 
-
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 pub fn dotp_naive_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
     for ((a, b), c) in x
         .chunks_exact(4)
@@ -47,6 +47,7 @@ pub fn dotp_naive_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
     }
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 #[inline(never)]
 pub fn dotp_simd_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
     let chunk_size = 4;
@@ -68,6 +69,7 @@ pub fn dotp_simd_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
     }
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 #[inline(never)]
 pub fn dotp_simd_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
     for ((a, b), c) in x
@@ -119,6 +121,7 @@ pub fn dotp_simd_f64_portable(x: &[f64], y: &[f64], z: &mut [f64]) {
         });
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 #[inline(never)]
 pub fn dotp_simd_f32_par(x: &[f32], y: &[f32], z: &mut [f32]) {
     let chunk_size = 8;
@@ -134,6 +137,7 @@ pub fn dotp_simd_f32_par(x: &[f32], y: &[f32], z: &mut [f32]) {
         });
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 #[inline(never)]
 pub fn dotp_simd_f64_par(x: &[f64], y: &[f64], z: &mut [f64]) {
     let chunk_size = 4;
@@ -149,6 +153,7 @@ pub fn dotp_simd_f64_par(x: &[f64], y: &[f64], z: &mut [f64]) {
         });
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx2"))]
 #[inline(never)]
 pub fn dotp_no_simd_bounds_f32(x: &[f32], y: &[f32], z: &mut [f32]) {
     for idx in 0..x.len() / 8 {

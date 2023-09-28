@@ -19,5 +19,5 @@ fn main() {
     let tree = SingleNodeTree::new(points.data(), false, Some(ncrit), Some(depth), &global_idxs);
 
     m2l_parent_par_naive(expansion_order, &tree);
-    m2l_parent_par_simd(expansion_order, &tree);
+    // m2l_parent_par_simd_avx(expansion_order, &tree);
 }

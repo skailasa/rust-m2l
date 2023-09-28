@@ -14,36 +14,43 @@ bempp-traits = {git = "https://github.com/bempp/bempp-rs.git", branch = "feat/rl
 rlst = {git = "https://github.com/skailasa/rlst.git", branch = "enh/moore-penrose-pseudo-inverse" }
 itertools = "0.11.0"
 
-[[bin]]
-name = "naive"
-path = "src/bin/naive.rs"
+[features]
+default = []
+avx2 = []
+neon = []
 
-[[bin]]
-name = "simd"
-path = "src/bin/simd.rs"
+# [[bin]]
+# name = "naive"
+# path = "src/bin/naive.rs"
 
-[[bin]]
-name = "simd_par"
-path = "src/bin/simd_par.rs"
+# [[bin]]
+# name = "simd"
+# path = "src/bin/simd.rs"
 
-[[bin]]
-name = "m2l_naive"
-path = "src/bin/m2l_naive.rs"
+# [target.'cfg(target_arch = "x86_64")'.dependencies]
+# [[bin]]
+# name = "simd_par"
+# path = "src/bin/simd_par.rs"
+
+# [[bin]]
+# name = "m2l_naive"
+# path = "src/bin/m2l_naive.rs"
 
 
-[[bin]]
-name = "m2l_naive_par"
-path = "src/bin/m2l_naive_par.rs"
+# [[bin]]
+# name = "m2l_naive_par"
+# path = "src/bin/m2l_naive_par.rs"
 
 
-[[bin]]
-name = "m2l_parent_par"
-path = "src/bin/m2l_parent_par.rs"
+# [[bin]]
+# name = "m2l_parent_par"
+# path = "src/bin/m2l_parent_par.rs"
 
-[[bin]]
-name = "m2l_par"
-path = "src/bin/m2l_par.rs"
+# [[bin]]
+# name = "m2l_par"
+# path = "src/bin/m2l_par.rs"
 
-[[bin]]
-name = "hadamard"
-path = "src/bin/hadamard.rs"
+
+# [[bin]]
+# name = "hadamard"
+# path = "src/bin/hadamard.rs"
