@@ -1,7 +1,8 @@
+use num::complex::Complex64;
 use rlst::dense::{rlst_rand_mat, RawAccess};
 use rust_simd::hadamard::*;
 use rust_simd::helpers::*;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub fn main() {
     let expansion_order: usize = 9;
@@ -17,11 +18,11 @@ pub fn main() {
     let mut sibling_set = Vec::new();
 
     for i in 0..8 {
-        let tmp = rlst_rand_mat![f64, (size_real, 1)];
+        let tmp = rlst_rand_mat![Complex64, (size_real, 1)];
 
         sibling_set.push(Arc::new(Mutex::new(tmp.data().to_vec())))
     }
 
-    let kernel_data = kernel_like_data::<f64>();
-    hadamard_product_simd(&sibling_set, &kernel_data);
+    let kernel_data = RwLock::new(kernel_like_data(expansion_order));
+    hadamard_product_simd(expansion_order, &sibling_set, &kernel_data);
 }

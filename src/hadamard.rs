@@ -1,147 +1,224 @@
 use std::{
     arch::x86_64::*,
-    sync::{Arc, Mutex, RwLock}
+    sync::{Arc, Mutex, RwLock},
 };
 
-pub fn hadamard_kernel(kernel: &[f64], signal: &[f64], result: &mut [f64]) {
-    // assert!(kernel.len() == 8);
-    // assert!(signal.len() == 8);
-    // assert!(result.len() == 8);
+use num::{complex::Complex64, Zero};
 
-    unsafe {
-        // Load the first half (4 elements) of kernel and signal into YMM registers
-        let kernel_vec1 = _mm256_loadu_pd(&kernel[0]);
-        let signal_vec1 = _mm256_loadu_pd(&signal[0]);
-
-        // Compute the Hadamard product for the first half using FMA
-        let res_vec1 = _mm256_fmadd_pd(kernel_vec1, signal_vec1, _mm256_setzero_pd());
-
-        // Store the result back into the result array
-        _mm256_storeu_pd(&mut result[0], res_vec1);
-
-        // Repeat the same for the second half of the slices
-        let kernel_vec2 = _mm256_loadu_pd(&kernel[4]);
-        let signal_vec2 = _mm256_loadu_pd(&signal[4]);
-
-        let res_vec2 = _mm256_fmadd_pd(kernel_vec2, signal_vec2, _mm256_setzero_pd());
-
-        _mm256_storeu_pd(&mut result[4], res_vec2);
-    }
-}
-
-
-pub fn hadamard_product_naive(sibling_set: &Vec<Arc<Mutex<Vec<f64>>>>, kernel_data: &RwLock<Vec<f64>>) {
-    let expansion_order: usize = 9;
+// Compute the Hadamard product of a sibling set of FFT coefficients (i.e. the multipole expansions)
+// With all 16 unique Green kernels corresponding to the unique convolutions.
+// This function doesn't do any special optimisations, just implementing the convolutions as a triple
+// for loop
+pub fn hadamard_product_naive(
+    expansion_order: usize,
+    sibling_set: &Vec<Arc<Mutex<Vec<Complex64>>>>,
+    kernel_data: &RwLock<Vec<Complex64>>,
+) {
     let n = 2 * expansion_order - 1;
     let &(m, n, o) = &(n, n, n);
 
     let p = m + 1;
     let q = n + 1;
     let r = o + 1;
-    let size = p * q * r;
     let size_real = p * q * (r / 2 + 1);
 
-
-    let mut res = vec![0f64; size_real*16*8];
-
+    let mut res = vec![Complex64::zero(); size_real * 16 * 8];
 
     for i in 0..16 {
-
-
-        let m2l_matrix_offset = i*size_real;
-
+        let m2l_matrix_offset = i * size_real;
 
         // Loading this into cache is the most expensive operation.
-        let m2l_matrix = &kernel_data.read().unwrap()[m2l_matrix_offset..m2l_matrix_offset+size_real];
-        // println!("HERE {:?}", m2l_matrix.len());
+        let m2l_matrix =
+            &kernel_data.read().unwrap()[m2l_matrix_offset..m2l_matrix_offset + size_real];
 
+        for k in 0..8 {
+            let signal = sibling_set[k].lock().unwrap();
+
+            for j in 0..size_real {
+                res[k * size_real * 16 + i * size_real + j] += signal[j] * m2l_matrix[j];
+            }
+        }
+    }
+}
+
+// Compute the Hadamard product of a sibling set of FFT coefficients (i.e. the multipole expansions)
+// With all 16 unique Green kernels corresponding to the unique convolutions.
+// This function uses explicit SIMD to fetch and compute the component wise product of the complex
+// numbers corresponding to the FFT outputs.
+pub fn hadamard_product_simd(
+    expansion_order: usize,
+    sibling_set: &Vec<Arc<Mutex<Vec<Complex64>>>>,
+    kernel_data: &RwLock<Vec<Complex64>>,
+) -> Vec<Complex64> {
+    let n = 2 * expansion_order - 1;
+    let &(m, n, o) = &(n, n, n);
+
+    let p = m + 1;
+    let q = n + 1;
+    let r = o + 1;
+    let size_real = p * q * (r / 2 + 1);
+
+    let mut res = vec![Complex64::zero(); size_real * 16 * 8];
+
+    for i in 0..16 {
+        let m2l_matrix_offset = i * size_real;
+
+        // Loading this into cache is the most expensive operation.
+        let m2l_matrix =
+            &kernel_data.read().unwrap()[m2l_matrix_offset..m2l_matrix_offset + size_real];
+
+        // Instead of storing in a temporary buffer to scatter later, there should be a way of directly
+        // loading the ifft data structure into a SIMD register here and directly saving the convolutions
+        // as they are computed and already held in SIMD registers. Then we will have a very similar memory
+        // access pattern to PVFMM and should not have to do the scatter operation as an additional step.
+        for k in 0..8 {
+            let signal = sibling_set[k].lock().unwrap();
+            let res_offset = k * size_real * 16 + i * size_real;
+
+            let chunk_size = 2;
+            let chunks = size_real / chunk_size;
+
+            for j in 0..chunks {
+                let simd_index = j * chunk_size;
+                unsafe {
+                    let complex_ref = &signal[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let signal_chunk = _mm256_loadu_pd(ptr);
+
+                    let complex_ref = &m2l_matrix[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let kernel_chunk = _mm256_loadu_pd(ptr);
+
+                    let complex_ref = &res[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let res_chunk = _mm256_loadu_pd(ptr);
+
+                    // Find component wise product, add with what's already there
+                    let product = hadamard_product_kernel_avx2(signal_chunk, kernel_chunk);
+                    let tmp = _mm256_add_pd(product, res_chunk);
+
+                    // Save
+                    let complex_ref = &res[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *mut f64;
+
+                    _mm256_storeu_pd(ptr, tmp);
+                }
+            }
+
+            // Handle remainder
+            let start_remainder = chunks * chunk_size;
+            for j in start_remainder..size_real {
+                res[res_offset + j] += signal[j] * m2l_matrix[j];
+            }
+        }
+    }
+
+    res
+}
+
+
+// Same as above, but saves directly into the halo
+pub fn hadamard_product_simd_halo(
+    expansion_order: usize,
+    sibling_set: &Vec<Arc<Mutex<Vec<Complex64>>>>,
+    kernel_data: &RwLock<Vec<Complex64>>,
+) {
+    let n = 2 * expansion_order - 1;
+    let &(m, n, o) = &(n, n, n);
+
+    let p = m + 1;
+    let q = n + 1;
+    let r = o + 1;
+    let size_real = p * q * (r / 2 + 1);
+
+    let mut res = vec![Complex64::zero(); size_real * 16 * 8];
+
+    for i in 0..16 {
+        let m2l_matrix_offset = i * size_real;
+
+        // Loading this into cache is the most expensive operation.
+        let m2l_matrix =
+            &kernel_data.read().unwrap()[m2l_matrix_offset..m2l_matrix_offset + size_real];
 
         for k in 0..8 {
             let signal = sibling_set[k].lock().unwrap();
             let res_offset = k * size_real * 16 + i * size_real;
 
-            let chunk_size = 4;
+            let chunk_size = 2;
             let chunks = size_real / chunk_size;
-
-
 
             for j in 0..chunks {
                 let simd_index = j * chunk_size;
                 unsafe {
-                    let signal_chunk = _mm256_loadu_pd(&signal[simd_index]);
-                    let kernel_chunk = _mm256_loadu_pd(&m2l_matrix[simd_index]);
-                    let res_chunk = _mm256_loadu_pd(&res[simd_index]);
+                    let complex_ref = &signal[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let signal_chunk = _mm256_loadu_pd(ptr);
 
-                    let product = _mm256_mul_pd(signal_chunk, kernel_chunk);
+                    let complex_ref = &m2l_matrix[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let kernel_chunk = _mm256_loadu_pd(ptr);
 
-                    let tmp = _mm256_add_pd(product, res_chunk);
+                    let complex_ref = &res[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *const f64;
+                    let res_chunk = _mm256_loadu_pd(ptr);
 
-                    // let tmp = _mm256_fmadd_pd(signal_chunk, kernel_chunk, res_chunk);
-                    _mm256_storeu_pd(&mut res[simd_index], tmp);
+                    // Find component wise product, add with what's already there
+                    let product = hadamard_product_kernel_avx2(signal_chunk, kernel_chunk);
+                    // let tmp = _mm256_add_pd(product, res_chunk);
 
+                    // Save
+                    let complex_ref = &res[simd_index];
+                    let tuple_ptr: *const (f64, f64) = complex_ref as *const _ as *const (f64, f64);
+                    let ptr = tuple_ptr as *mut f64;
+                    _mm256_storeu_pd(ptr, product);
                 }
             }
 
-
+            // Handle remainder
             let start_remainder = chunks * chunk_size;
             for j in start_remainder..size_real {
                 res[res_offset + j] += signal[j] * m2l_matrix[j];
             }
-
-            // for j in 0..size_real {
-            //     res[k*size_real*16+i*size_real+j] += signal[j]*m2l_matrix[j];
-            // }
         }
     }
-
-    // println!("Hadamard product {:?}", s.elapsed());
-
 }
 
-pub fn hadamard_product_simd<'a>(sibling_set: &Vec<Arc<Mutex<Vec<f64>>>>, kernel_data: &Vec<f64>) {
-    let expansion_order: usize = 9;
-    let n = 2 * expansion_order - 1;
-    let &(m, n, o) = &(n, n, n);
 
-    let p = m + 1;
-    let q = n + 1;
-    let r = o + 1;
-    let size = p * q * r;
-    let size_real = p * q * (r / 2 + 1);
+// The SIMD kernel for computing the component wise product of two complex numbers loaded into
+// SIMD registers a and b respectively. Optimised for AVX 2 256-bit wide registers
+pub fn hadamard_product_kernel_avx2(a_ra: __m256d, b_ra: __m256d) -> __m256d {
+    unsafe {
+        // Extract real parts [a1, a1, a2, a2]
+        let a_real = _mm256_shuffle_pd(a_ra, a_ra, 0b0);
 
-    // Receiving a vec of sibling coefficients, need to go through by frequency so need to re
-    // allocate so that they're arranged by frequency
+        // Extract imaginary parts [b1, b1, b2, b2]
+        let a_imag = _mm256_shuffle_pd(a_ra, a_ra, 0b1111);
 
-    // let s = Instant::now();
-    // let signal_data = transpose::<f64>(sibling_set);
-    // println!("Signal Transpose {:?}", s.elapsed().as_millis());
+        // Multiply real parts [a1c1, a1d1, a2c2, a2d2]
+        let real_mul = _mm256_mul_pd(a_real, b_ra);
 
-    // Result buffer
-    let mut result = vec![0f64; 16*size_real*8];
+        // Multiply imag parts [b1c1, b1d1, b2c2, b2d2]
+        let imag_mul = _mm256_mul_pd(a_imag, b_ra);
 
-    // Iterate over frequencies
+        // Find components that go in the real and imag part of solution
+        // [a1c1, b1d1, a2c2, b2d2]
+        let real_part = _mm256_blend_pd(real_mul, imag_mul, 0b1010);
+        // [b1c1, a1d1, b2c2, a2d2]
+        let imag_part = _mm256_blend_pd(real_mul, imag_mul, 0b0101);
 
-    // // let s = Instant::now();
-    // for k in 0..size_real {
-    //     // Get out a set of 8 convolutions at the kth frequency
-    //     // Multiply with kth frequency components of sibling set
-    //     let signal = &signal_data[(k*8)..(k*8)+8];
-    //     let kernel = &kernel_data[k*16..(k*16)+16];
+        // [a1c1-b1d1, a1c1-b1d1, a2c2-b2d2, a2c2-b2d2]
+        let real = _mm256_hsub_pd(real_part, real_part);
+        let imag = _mm256_hadd_pd(imag_part, imag_part);
 
-    //     // for i in 0..2 {
-    //     //     // let res = &mut result[(k*128)+(i * 64)..(k*128)+(i * 64) + 64];
+        let result = _mm256_blend_pd(real, imag, 0b1010);
 
-    //     //     // res
-    //     //     //     .chunks_exact_mut(8)
-    //     //     //     .zip(kernel.chunks_exact(8))
-    //     //     //     .for_each(|(r, k)| {
-
-    //     //     //         // Chunk of size 8 64 bits won't fit into avx2 register, need compute half of
-    //     //     //         // chunk at a time.
-    //     //     //         hadamard_kernel(k, signal,  r);
-
-    //     //     //     })
-    //     // }
-    // }
-    // println!("Hadamard product {:?}", s.elapsed());
+        result
+    }
 }

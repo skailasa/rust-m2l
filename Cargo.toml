@@ -41,5 +41,9 @@ name = "m2l_parent_par"
 path = "src/bin/m2l_parent_par.rs"
 
 [[bin]]
+name = "m2l_par"
+path = "src/bin/m2l_par.rs"
+
+[[bin]]
 name = "hadamard"
 path = "src/bin/hadamard.rs"

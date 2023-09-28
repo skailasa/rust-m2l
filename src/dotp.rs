@@ -6,6 +6,7 @@ use std::{
 
 use rayon::prelude::*;
 
+
 pub fn dotp_naive_f64(x: &[f64], y: &[f64], z: &mut [f64]) {
     for ((a, b), c) in x
         .chunks_exact(4)

@@ -1,5 +1,5 @@
-use rust_simd::helpers::*;
 use rust_simd::dotp::*;
+use rust_simd::helpers::*;
 use std::time::Instant;
 
 fn main() {

@@ -1,3 +1,4 @@
+
 use bempp_traits::tree::Tree;
 use bempp_tree::implementations::helpers::points_fixture;
 use bempp_tree::types::single_node::SingleNodeTree;
@@ -6,7 +7,8 @@ use rlst::dense::RawAccess;
 
 use rust_simd::m2l::*;
 
-fn main() {
+fn main () {
+
     let npoints = 1000000;
     let ncrit = 150;
     let depth = 5;
@@ -18,5 +20,5 @@ fn main() {
 
     let tree = SingleNodeTree::new(points.data(), false, Some(ncrit), Some(depth), &global_idxs);
 
-    m2l_naive_par(expansion_order, &tree);
+    m2l_par(expansion_order, &tree);
 }
